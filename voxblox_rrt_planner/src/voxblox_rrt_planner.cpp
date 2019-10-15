@@ -21,6 +21,7 @@ VoxbloxRrtPlanner::VoxbloxRrtPlanner(const ros::NodeHandle& nh,
       lower_bound_(Eigen::Vector3d::Zero()),
       upper_bound_(Eigen::Vector3d::Zero()),
       voxblox_server_(nh_, nh_private_),
+      optimistic_(true),
       rrt_(nh_, nh_private_) {
   constraints_.setParametersFromRos(nh_private_);
 
@@ -29,6 +30,7 @@ VoxbloxRrtPlanner::VoxbloxRrtPlanner(const ros::NodeHandle& nh,
   nh_private_.param("visualize", visualize_, visualize_);
   nh_private_.param("frame_id", frame_id_, frame_id_);
   nh_private_.param("do_smoothing", do_smoothing_, do_smoothing_);
+  nh_private_.param("optimistic", optimistic_, optimistic_);
 
   path_marker_pub_ =
       nh_private_.advertise<visualization_msgs::MarkerArray>("path", 1, true);
@@ -76,7 +78,8 @@ VoxbloxRrtPlanner::VoxbloxRrtPlanner(const ros::NodeHandle& nh,
 
   // TODO(helenol): figure out what to do with optimistic/pessimistic here.
   rrt_.setRobotRadius(constraints_.robot_radius);
-  rrt_.setOptimistic(false);
+  rrt_.setOptimistic(optimistic_);
+
 
   rrt_.setTsdfLayer(voxblox_server_.getTsdfMapPtr()->getTsdfLayerPtr());
   rrt_.setEsdfLayer(voxblox_server_.getEsdfMapPtr()->getEsdfLayerPtr());
@@ -335,13 +338,16 @@ bool VoxbloxRrtPlanner::checkPathForCollisions(
 double VoxbloxRrtPlanner::getMapDistance(
     const Eigen::Vector3d& position) const {
   if (!voxblox_server_.getEsdfMapPtr()) {
+    ROS_ERROR("ESDF_MAP : no esdf map");
     return 0.0;
   }
   double distance = 0.0;
   if (!voxblox_server_.getEsdfMapPtr()->getDistanceAtPosition(position,
                                                               &distance)) {
+    ROS_ERROR("ESDF_MAP : cannot find distance at position %f", distance);
     return 0.0;
   }
+   ROS_ERROR("ESDF_MAP : found distance at position %f", distance);
   return distance;
 }
 

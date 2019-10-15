@@ -423,7 +423,9 @@ void MavLocalPlanner::avoidCollisionsTowardWaypoint() {
     if (success) {
       if (trajectory.getMaxTime() <= 0.1) {
         nextWaypoint();
+        ROS_INFO("[Mav Local Planner] Not Replace Path");
       } else {
+        ROS_INFO("[Mav Local Planner] Replace Path");
         // Copy this straight into the queue.
         num_failures_ = 0;
         mav_msgs::EigenTrajectoryPointVector path;
@@ -432,8 +434,29 @@ void MavLocalPlanner::avoidCollisionsTowardWaypoint() {
         replacePath(path);
       }
     } else {
-      dealWithFailure();
-    }
+      bool plan_b = dealWithFailure();
+      if(plan_b){
+        bool success_b = loco_planner_.getTrajectoryTowardGoal(current_point, waypoint,
+                                                    &trajectory);
+        ROS_INFO("[Mav Local Planner][Plan Step] Planning success? %d", success);
+
+        if (success_b) {
+          if (trajectory.getMaxTime() <= 0.1) {
+            nextWaypoint();
+            ROS_INFO("[Mav Local Planner][Not Replace Path]");
+          } else {
+            ROS_INFO("[Mav Local Planner][Replace Path]");
+            // Copy this straight into the queue.
+            num_failures_ = 0;
+            mav_msgs::EigenTrajectoryPointVector path;
+            mav_trajectory_generation::sampleWholeTrajectory(
+            trajectory, constraints_.sampling_dt, &path);
+            replacePath(path);
+            }
+          }
+      
+        }
+      }
   }
 }
 
@@ -467,9 +490,11 @@ bool MavLocalPlanner::planPathThroughWaypoints(
 bool MavLocalPlanner::nextWaypoint() {
   if (current_waypoint_ >= static_cast<int64_t>(waypoints_.size()) - 1) {
     current_waypoint_ = waypoints_.size() - 1;
+    ROS_INFO("[Mav Local Planner][next wp] false, current_waypoint_, %zu, waypoints_.size(), %zu ", current_waypoint_,waypoints_.size());
     return false;
   } else {
     current_waypoint_++;
+    ROS_INFO("[Mav Local Planner][next wp] true, current_waypoint_, %zu, waypoints_.size(), %zu ", current_waypoint_,waypoints_.size());
     return true;
   }
 }
@@ -494,7 +519,7 @@ void MavLocalPlanner::startPublishingCommands() {
     std_srvs::Empty empty_call;
     position_hold_client_.call(empty_call);
   }
-
+  ROS_INFO("[Mav Local Planner][Publish Commands]");
   // Publish the first set immediately, on this thread.
   commandPublishTimerCallback(ros::TimerEvent());
 
@@ -626,6 +651,7 @@ void MavLocalPlanner::visualizePath() {
   }
   marker_array.markers.push_back(path_marker);
   path_marker_pub_.publish(marker_array);
+  ROS_INFO("[Mav Local Planner][Publish Markers]");
 }
 
 double MavLocalPlanner::getMapDistance(const Eigen::Vector3d& position) const {
@@ -679,6 +705,7 @@ bool MavLocalPlanner::dealWithFailure() {
     return false;
   }
 
+  ROS_INFO("[mav_local_planner][dealWithFailure]");
   constexpr double kCloseEnough = 0.05;
   mav_msgs::EigenTrajectoryPoint waypoint = waypoints_[current_waypoint_];
   mav_msgs::EigenTrajectoryPoint goal = waypoint;
@@ -699,23 +726,28 @@ bool MavLocalPlanner::dealWithFailure() {
     }
     return false;
   } else {
+    ROS_INFO("Select Next Goal succeded!!!");
     if ((current_goal.position_W - waypoint.position_W).norm() < kCloseEnough) {
       // Goal is unchanged. :(
       temporary_goal_ = false;
+      ROS_INFO("Goal unchanged!!!, dist %f, kcloseenough %f", (current_goal.position_W - waypoint.position_W).norm(),kCloseEnough );
       return false;
     } else if ((current_goal.position_W - goal.position_W).norm() <
                kCloseEnough) {
       // This is just the next waypoint that we're trying to go to.
       current_waypoint_++;
       temporary_goal_ = false;
+      ROS_INFO("Next wp !!!, goal pos  %f, %f, %f", goal.position_W.x(), goal.position_W.y(), goal.position_W.z() );
       return true;
     } else {
       // Then this is something different!
       temporary_goal_ = true;
       waypoints_.insert(waypoints_.begin() + current_waypoint_, current_goal);
+      ROS_INFO("Temporary goal is %d", temporary_goal_);
       return true;
     }
   }
+  
 }
 
 }  // namespace mav_planning

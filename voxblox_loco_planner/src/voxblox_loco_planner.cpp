@@ -11,14 +11,14 @@ VoxbloxLocoPlanner::VoxbloxLocoPlanner(const ros::NodeHandle& nh,
                                        const ros::NodeHandle& nh_private)
     : nh_(nh),
       nh_private_(nh_private),
-      verbose_(false),
+      verbose_(true),
       visualize_(true),
       frame_id_("odom"),
       num_segments_(3),
       num_random_restarts_(5),
       random_restart_magnitude_(0.5),
       planning_horizon_m_(4.0),
-      use_shotgun_(true),
+      use_shotgun_(false),
       use_shotgun_path_(true),
       loco_(kD) {
   constraints_.setParametersFromRos(nh_private_);
@@ -129,7 +129,7 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     mav_trajectory_generation::Trajectory* trajectory) {
   CHECK(esdf_map_);
 
-  ROS_DEBUG_STREAM("[Voxblox Loco Planner] Start: "
+  ROS_INFO_STREAM("[Voxblox Loco Planner] Start: "
                    << start.position_W.transpose()
                    << " goal: " << goal.position_W.transpose());
 
@@ -172,6 +172,7 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     success = isPathCollisionFree(path);
     if (success) {
       // Awesome, collision-free path.
+      ROS_INFO("[Voxblox Loco Planner] Collision free");
       break;
     }
 
@@ -278,8 +279,14 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     goal_point.position_W =
         start_point.position_W + planning_horizon_m_ * direction_to_waypoint;
     planning_distance = planning_horizon_m_;
+    ROS_INFO("[Voxblox Loco Planner] planning_distance (%f) > planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
+               planning_horizon_m_, goal_point.position_W.x(), goal_point.position_W.y(),
+               goal_point.position_W.z());
   }
 
+    ROS_INFO("[Voxblox Loco Planner] planning_distance < (%f) planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
+               planning_horizon_m_, goal_point.position_W.x(), goal_point.position_W.y(),
+               goal_point.position_W.z());
   mav_msgs::EigenTrajectoryPointVector shotgun_path;
 
   // Try to find an intermediate goal to go to if the edge of the planning
@@ -303,8 +310,11 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
   } else if (getMapDistance(goal_point.position_W) <
              constraints_.robot_radius) {
     const double step_size = esdf_map_->voxel_size();
+    ROS_INFO("[Voxblox Loco Planner Debug] Goal point < robot radius, distance: %f, robot_radius %f", getMapDistance(goal_point.position_W), constraints_.robot_radius);
     goal_found =
         findIntermediateGoal(start_point, goal_point, step_size, &goal_point);
+    ROS_INFO("[Voxblox Loco Planner] Goal point < robot radius, find intermediate goal : %f, %f, %f", goal_point.position_W.x(), goal_point.position_W.y(),
+               goal_point.position_W.z() );
   }
 
   if (!goal_found ||
@@ -346,6 +356,7 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
   success = getTrajectoryBetweenWaypoints(start_point, goal_point,
                                           shortened_path, trajectory);
 
+  ROS_INFO("[Voxblox Loco Planner] Success : %d", success);
   // TODO(DEBUG)
   if (verbose_) {
     mav_trajectory_generation::timing::Timing::Print(std::cout);
