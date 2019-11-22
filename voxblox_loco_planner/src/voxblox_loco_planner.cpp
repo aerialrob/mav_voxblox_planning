@@ -172,10 +172,10 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     success = isPathCollisionFree(path);
     if (success) {
       // Awesome, collision-free path.
-      ROS_INFO("[Voxblox Loco Planner] Collision free");
+      ROS_ERROR("[Voxblox Loco Planner] Collision free");
       break;
     }
-
+    ROS_ERROR("[Voxblox Loco Planner] Collision path");
     // Otherwise let's do some random restarts.
     x = x0 + random_restart_magnitude_ * Eigen::VectorXd::Random(x.size());
     loco_.setParameterVector(x);
@@ -187,7 +187,7 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
   }
 
   if (verbose_) {
-    ROS_INFO("[Voxblox Loco Planner] Found solution (%d) after %d restarts.",
+    ROS_ERRO("[Voxblox Loco Planner] Found solution (%d) after %d restarts.",
              success, i);
   }
   return success;
@@ -279,12 +279,12 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     goal_point.position_W =
         start_point.position_W + planning_horizon_m_ * direction_to_waypoint;
     planning_distance = planning_horizon_m_;
-    ROS_INFO("[Voxblox Loco Planner] planning_distance (%f) > planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
+    ROS_ERROR("[Voxblox Loco Planner] planning_distance (%f) >planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
                planning_horizon_m_, goal_point.position_W.x(), goal_point.position_W.y(),
                goal_point.position_W.z());
   }
 
-    ROS_INFO("[Voxblox Loco Planner] planning_distance < (%f) planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
+    ROS_ERROR("[Voxblox Loco Planner] planning_distance < (%f) planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
                planning_horizon_m_, goal_point.position_W.x(), goal_point.position_W.y(),
                goal_point.position_W.z());
   mav_msgs::EigenTrajectoryPointVector shotgun_path;
