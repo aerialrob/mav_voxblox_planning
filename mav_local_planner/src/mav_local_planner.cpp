@@ -337,67 +337,139 @@ void MavLocalPlanner::avoidCollisionsTowardWaypoint() {
         }
       }
     }
-
+    mav_msgs::EigenTrajectoryPointVector path_replanned;
+    bool replan_path = false;
     bool path_chunk_collision_free = isPathCollisionFree(path_chunk);
-    ROS_INFO(
+    ROS_ERROR(
         "[Mav Local Planner][Plan Step] Existing chunk is collision free? %d",
         path_chunk_collision_free);
-    // Check if the current path queue goes to the goal and is collision free.
-    if ((path_chunk.back().position_W - waypoint.position_W).norm() <
-        kCloseEnough) {
-      // Collision check the remaining chunk of the trajectory.
-      if (path_chunk_collision_free) {
-        ROS_ERROR(
-            "[Mav Local Planner][Plan Step] Current plan is valid, just "
-            "rollin' with it.");
-        nextWaypoint();
-        return;
-      }
-    }
-    // Otherwise we gotta replan this thing anyway.
-    success = loco_planner_.getTrajectoryTowardGoal(path_chunk.front(),
+    
+    bool goal_reached = ((path_chunk.back().position_W - waypoint.position_W).norm() < kCloseEnough);
+    if (!goal_reached || !(path_chunk_collision_free)) {
+          
+        success = loco_planner_.getTrajectoryTowardGoal(path_chunk.front(),
                                                     waypoint, &trajectory);
-    if (!success) {
-      if (path_chunk_collision_free) {
-        ROS_INFO(
-            "[Mav Local Planner][Plan Step] Couldn't find a solution :( "
-            "Continuing existing solution.");
-      } else {
-        ROS_INFO(
-            "[Mav Local Planner][Plan Step] ABORTING! No local solution "
-            "found.");
-        // TODO(helenol): which order to abort in?
-        abort();
-        dealWithFailure();
-      }
-      return;
-    } else {
-      ROS_INFO("[Mav Local Planner][Plan Step] Appending new path chunk.");
+
+        
+        mav_trajectory_generation::sampleWholeTrajectory(
+            trajectory, constraints_.sampling_dt, &path_replanned);
+
+        
+        if(success){
+          if((!((path_replanned.back().position_W - waypoint.position_W).norm() < kCloseEnough))){
+            if (path_chunk_collision_free) {
+              ROS_ERROR(
+              "[Mav Local Planner][Plan Step] Current plan is valid and still cannot get to the goal wp, just "
+              "rollin' with it.");
+              nextWaypoint();
+              return;
+            }
+            else{
+              replan_path = true;
+            }
+          }else{
+            replan_path = true;
+          }
+        }else{
+            if (path_chunk_collision_free) {
+              ROS_ERROR(
+              "[Mav Local Planner][Plan Step] Current plan is valid and still cannot get to the goal wp, just "
+              "rollin' with it.");
+              nextWaypoint();
+              return;
+            }
+            else{
+              ROS_ERROR(
+              "[Mav Local Planner][Plan Step] ABORTING! No local solution "
+              "found.");
+              // TODO(helenol): which order to abort in?
+              abort();
+              dealWithFailure();
+            }
+        }
+        
+    if(replan_path){
+      ROS_ERROR("[Mav Local Planner][Plan Step] Appending new path chunk.");
       if (trajectory.getMaxTime() <= 1e-6) {
         nextWaypoint();
       } else {
-        num_failures_ = 0;
-        mav_msgs::EigenTrajectoryPointVector new_path_chunk;
-        mav_trajectory_generation::sampleWholeTrajectory(
-            trajectory, constraints_.sampling_dt, &new_path_chunk);
-
-        retimeTrajectoryWithStartTimeAndDt(
-            path_chunk.front().time_from_start_ns, kDtNs, &new_path_chunk);
-
-        new_path_chunk.front().orientation_W_B =
-            path_chunk.front().orientation_W_B;
-        yaw_policy_.applyPolicyInPlace(&new_path_chunk);
-
-        // Remove what was in the trajectory before.
-        if (replan_start_index < path_queue_.size()) {
-          path_queue_.erase(path_queue_.begin() + replan_start_index,
-                            path_queue_.end());
+          num_failures_ = 0;
+          mav_msgs::EigenTrajectoryPointVector new_path_chunk;
+          mav_trajectory_generation::sampleWholeTrajectory(
+              trajectory, constraints_.sampling_dt, &new_path_chunk);
+         retimeTrajectoryWithStartTimeAndDt(
+              path_chunk.front().time_from_start_ns, kDtNs, &new_path_chunk);
+         new_path_chunk.front().orientation_W_B =
+              path_chunk.front().orientation_W_B;
+          yaw_policy_.applyPolicyInPlace(&new_path_chunk);
+         // Remove what was in the trajectory before.
+          if (replan_start_index < path_queue_.size()) {
+            path_queue_.erase(path_queue_.begin() + replan_start_index,
+                              path_queue_.end());
+          }
+          // Stick the new one in.
+          path_queue_.insert(path_queue_.end(), new_path_chunk.begin(),
+                     new_path_chunk.end());
         }
-        // Stick the new one in.
-        path_queue_.insert(path_queue_.end(), new_path_chunk.begin(),
-                           new_path_chunk.end());
-      }
+      } 
     }
+
+    // // Check if the current path queue goes to the goal and is collision free.
+    // if ((path_chunk.back().position_W - waypoint.position_W).norm() <
+    //     kCloseEnough) {
+    //   // Collision check the remaining chunk of the trajectory.
+    //   if (path_chunk_collision_free) {
+    //     ROS_ERROR(
+    //         "[Mav Local Planner][Plan Step] Current plan is valid, just "
+    //         "rollin' with it.");
+    //     nextWaypoint();
+    //     return;
+    //   }
+    // }
+    // // Otherwise we gotta replan this thing anyway.
+    // success = loco_planner_.getTrajectoryTowardGoal(path_chunk.front(),
+    //                                                 waypoint, &trajectory);
+    // if (!success) {
+    //   if (path_chunk_collision_free) {
+    //     ROS_INFO(
+    //         "[Mav Local Planner][Plan Step] Couldn't find a solution :( "
+    //         "Continuing existing solution.");
+    //   } else {
+    //     ROS_INFO(
+    //         "[Mav Local Planner][Plan Step] ABORTING! No local solution "
+    //         "found.");
+    //     // TODO(helenol): which order to abort in?
+    //     abort();
+    //     dealWithFailure();
+    //   }
+    //   return;
+    // } else {
+    //   ROS_INFO("[Mav Local Planner][Plan Step] Appending new path chunk.");
+    //   if (trajectory.getMaxTime() <= 1e-6) {
+    //     nextWaypoint();
+    //   } else {
+    //     num_failures_ = 0;
+    //     mav_msgs::EigenTrajectoryPointVector new_path_chunk;
+    //     mav_trajectory_generation::sampleWholeTrajectory(
+    //         trajectory, constraints_.sampling_dt, &new_path_chunk);
+
+    //     retimeTrajectoryWithStartTimeAndDt(
+    //         path_chunk.front().time_from_start_ns, kDtNs, &new_path_chunk);
+
+    //     new_path_chunk.front().orientation_W_B =
+    //         path_chunk.front().orientation_W_B;
+    //     yaw_policy_.applyPolicyInPlace(&new_path_chunk);
+
+    //     // Remove what was in the trajectory before.
+    //     if (replan_start_index < path_queue_.size()) {
+    //       path_queue_.erase(path_queue_.begin() + replan_start_index,
+    //                         path_queue_.end());
+    //     }
+    //     // Stick the new one in.
+    //     path_queue_.insert(path_queue_.end(), new_path_chunk.begin(),
+    //                        new_path_chunk.end());
+    //   }
+    // }
   } else {
     ROS_ERROR("[Mav Local Planner][Plan Step] Trying to plan from scratch.");
 
@@ -439,6 +511,12 @@ void MavLocalPlanner::avoidCollisionsTowardWaypoint() {
 
         ROS_ERROR("[Mav Local Planner][Plan Step] What I think is the new goal %f, %f, %f", waypoints_[current_waypoint_].position_W.x(), waypoints_[current_waypoint_].position_W.x(),
                  waypoints_[current_waypoint_].position_W.z());
+
+        if(waypoints_[current_waypoint_].position_W.z() < 1e-10){
+          ROS_ERROR("[dealWithFailure] Z negative !!!");
+
+          waypoints_[current_waypoint_].position_W.z() = waypoint.position_W.z();
+        }
 
         bool success_b = loco_planner_.getTrajectoryTowardGoal(current_point, waypoints_[current_waypoint_],  // waypoint
                                                     &trajectory);
