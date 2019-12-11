@@ -136,6 +136,8 @@ bool GoalPointSelector::selectLocalExplorationGoal(
       params_.random_sample_range;
 
   double best_gain = 0.0;
+  double exploration_gain, total_gain, goal_gain;
+
   mav_msgs::EigenTrajectoryPoint best_point;
 
   // First, select N random points within a radius of the current pose.
@@ -147,7 +149,7 @@ bool GoalPointSelector::selectLocalExplorationGoal(
     // For every point, evaluate its total gain: sum of distance of final
     // point to the goal, and the exploration gain from the 5% downsampled
     // amount.
-    double exploration_gain = evaluateExplorationGain(sampled_pose);
+    exploration_gain = evaluateExplorationGain(sampled_pose);
 
     Eigen::Vector3d travel_ray =
         sampled_pose.position_W - current_pose.position_W;
@@ -156,19 +158,21 @@ bool GoalPointSelector::selectLocalExplorationGoal(
 
     // Normalize the goal gain by the exploration range of the algorithm to
     // make sure the scoring is consistent across different settings.
-    double goal_gain =
+    goal_gain =
         (max_goal_dist -
          (global_goal.position_W - sampled_pose.position_W).norm()) /
         max_goal_dist;
 
     // Use heuristics to weigh between the two factors.
-    double total_gain =
+    total_gain =
         params_.w_exploration * exploration_gain + params_.w_goal * goal_gain;
     if (total_gain >= best_gain) {
       best_gain = total_gain;
       best_point = sampled_pose;
     }
   }
+  ROS_INFO("Goal gain, %f, exploration gain %f, total gain %f", goal_gain, exploration_gain, best_gain);
+  ROS_ERROR("Best point, %f, %f, %f", best_point.position_W.x(), best_point.position_W.y(), best_point.position_W.z());
 
   *next_goal = best_point;
   return true;

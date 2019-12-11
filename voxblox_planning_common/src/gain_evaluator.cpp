@@ -2,7 +2,7 @@
 #include <voxblox/integrator/integrator_utils.h>
 
 #include "voxblox_planning_common/gain_evaluator.h"
-
+#include <iostream>
 namespace mav_planning {
 
 GainEvaluator::GainEvaluator() {}
@@ -41,12 +41,22 @@ double GainEvaluator::evaluateExplorationGainVoxelCount(
 
   mav_trajectory_generation::timing::Timer timer_gain("exploration/exp_gain");
 
+  // Initialize camera 
+  double horizontal_fov = (60 * 3.1416)/180;
+  double vertical_fov = (49.5 * 3.1416)/180;
+  double min_distance = 0.6;
+  double max_distance = 8;
+
+  cam_model_.setIntrinsicsFromFoV( horizontal_fov, vertical_fov, min_distance,
+                                   max_distance);
+
   cam_model_.setBodyPose(voxblox::Transformation(
       pose.orientation_W_B.cast<float>(), pose.position_W.cast<float>()));
 
   // Get the boundaries of the current view.
   Eigen::Vector3f aabb_min, aabb_max;
   cam_model_.getAabb(&aabb_min, &aabb_max);
+  std::cout << "Exploration gain, cam model boundaries \n"<< aabb_min.x() << aabb_min.y() <<aabb_min.z() ;
 
   double num_unknown = 0.0;
 
@@ -62,6 +72,10 @@ double GainEvaluator::evaluateExplorationGainVoxelCount(
          pos.y() += voxel_size_) {
       for (pos.z() = aabb_min.z(); pos.z() < aabb_max.z();
            pos.z() += voxel_size_) {
+        
+        if(pos.z() <= 1e-8){
+          continue;
+        }
         if (!cam_model_.isPointInView(pos)) {
           continue;
         }
