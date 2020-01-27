@@ -2,7 +2,7 @@
 #include <mav_trajectory_generation/trajectory_sampling.h>
 #include <mav_trajectory_generation/vertex.h>
 #include <voxblox/utils/timing.h>
-
+#include "voxblox_loco_planner/color.h"
 #include "voxblox_loco_planner/voxblox_loco_planner.h"
 
 namespace mav_planning {
@@ -172,10 +172,10 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     success = isPathCollisionFree(path);
     if (success) {
       // Awesome, collision-free path.
-      ROS_ERROR("[Voxblox Loco Planner] Collision free");
+      //ROS_ERROR("[Voxblox Loco Planner] Collision free");
       break;
     }
-    ROS_ERROR("[Voxblox Loco Planner] Collision path");
+    //ROS_ERROR("[Voxblox Loco Planner] Collision path");
     // Otherwise let's do some random restarts.
     x = x0 + random_restart_magnitude_ * Eigen::VectorXd::Random(x.size());
     loco_.setParameterVector(x);
@@ -187,8 +187,8 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
   }
 
   if (verbose_) {
-    ROS_ERROR("[Voxblox Loco Planner] Found solution (%d) after %d restarts.",
-             success, i);
+    ROS_ERROR("%s[Voxblox Loco Planner] Found solution (%d) after %d restarts.%s", COLOR1,
+             success, i, RESET_COLOR);
   }
   return success;
 }
@@ -279,12 +279,12 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     goal_point.position_W =
         start_point.position_W + planning_horizon_m_ * direction_to_waypoint;
     planning_distance = planning_horizon_m_;
-    ROS_ERROR("[Voxblox Loco Planner] planning_distance (%f) >planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
+    ROS_INFO("[Voxblox Loco Planner] planning_distance (%f) >planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
                planning_horizon_m_, goal_point.position_W.x(), goal_point.position_W.y(),
                goal_point.position_W.z());
   }
 
-    ROS_ERROR("[Voxblox Loco Planner] planning_distance < (%f) planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
+    ROS_INFO("[Voxblox Loco Planner] planning_distance < (%f) planning_horizon_m_ %f, goal point position %f %f %f", planning_distance,
                planning_horizon_m_, goal_point.position_W.x(), goal_point.position_W.y(),
                goal_point.position_W.z());
   mav_msgs::EigenTrajectoryPointVector shotgun_path;
@@ -296,9 +296,9 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     goal_found = findIntermediateGoalShotgun(start_point, goal_point,
                                              &goal_point, &shotgun_path);
     if (verbose_) {
-      ROS_ERROR("[Shotgun] Found (%d) intermediate goal at %f %f %f", goal_found,
+      ROS_ERROR("%s[Shotgun] Found (%d) intermediate goal at %f %f %f%s",COLOR3, goal_found,
                goal_point.position_W.x(), goal_point.position_W.y(),
-               goal_point.position_W.z());
+               goal_point.position_W.z(), RESET_COLOR);
     }
     if ((goal_point.position_W - start_point.position_W).norm() <
         kGoalReachedRange) {
@@ -310,11 +310,11 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
   } else if (getMapDistance(goal_point.position_W) <
              constraints_.robot_radius) {
     const double step_size = esdf_map_->voxel_size();
-    ROS_ERROR("[Voxblox Loco Planner Debug] Goal point < robot radius, distance: %f, robot_radius %f", getMapDistance(goal_point.position_W), constraints_.robot_radius);
+    //ROS_ERROR("[Voxblox Loco Planner Debug] Goal point < robot radius, distance: %f, robot_radius %f", getMapDistance(goal_point.position_W), constraints_.robot_radius);
     goal_found =
         findIntermediateGoal(start_point, goal_point, step_size, &goal_point);
-    ROS_ERROR("[Voxblox Loco Planner] Goal point < robot radius, find intermediate goal : %f, %f, %f", goal_point.position_W.x(), goal_point.position_W.y(),
-               goal_point.position_W.z() );
+    ROS_ERROR("%s[Voxblox Loco Planner] Found intermediate goal : %f, %f, %f%s",COLOR2, goal_point.position_W.x(), goal_point.position_W.y(),
+               goal_point.position_W.z(), RESET_COLOR);
   }
 
   if (!goal_found ||
