@@ -23,5 +23,5 @@
   <depend>voxblox_loco_planner</depend>
   <depend>voxblox_ros</depend>
   <depend>voxblox_rrt_planner</depend>
-  <depend>voxblox_skeleton_planner</depend>
+
 </package>
