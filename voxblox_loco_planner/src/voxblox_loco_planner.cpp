@@ -187,7 +187,7 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
   }
 
   if (verbose_) {
-    ROS_ERROR("%s[Voxblox Loco Planner] Found solution (%d) after %d restarts.%s", COLOR1,
+    ROS_ERROR("%s[Voxblox Loco Planner] Found solution (%d) after %d restarts.%s", COLOR7,
              success, i, RESET_COLOR);
   }
   return success;
@@ -296,7 +296,7 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     goal_found = findIntermediateGoalShotgun(start_point, goal_point,
                                              &goal_point, &shotgun_path);
     if (verbose_) {
-      ROS_ERROR("%s[Shotgun] Found (%d) intermediate goal at %f %f %f%s",COLOR3, goal_found,
+      ROS_ERROR("%s[Shotgun] Found (%d) intermediate goal at %f %f %f%s",COLOR7, goal_found,
                goal_point.position_W.x(), goal_point.position_W.y(),
                goal_point.position_W.z(), RESET_COLOR);
     }
@@ -313,7 +313,7 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     //ROS_ERROR("[Voxblox Loco Planner Debug] Goal point < robot radius, distance: %f, robot_radius %f", getMapDistance(goal_point.position_W), constraints_.robot_radius);
     goal_found =
         findIntermediateGoal(start_point, goal_point, step_size, &goal_point);
-    ROS_ERROR("%s[Voxblox Loco Planner] Found intermediate goal : %f, %f, %f%s",COLOR2, goal_point.position_W.x(), goal_point.position_W.y(),
+    ROS_ERROR("%s[Voxblox Loco Planner] Found intermediate goal : %f, %f, %f%s",COLOR7, goal_point.position_W.x(), goal_point.position_W.y(),
                goal_point.position_W.z(), RESET_COLOR);
   }
 
