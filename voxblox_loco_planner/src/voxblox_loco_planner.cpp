@@ -187,8 +187,8 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
   }
 
   if (verbose_) {
-    ROS_ERROR("%s[Voxblox Loco Planner] Found solution (%d) after %d restarts.%s", COLOR1,
-             success, i, RESET_COLOR);
+    ROS_INFO("[Voxblox Loco Planner] Found solution (%d) after %d restarts.", 
+             success, i);
   }
   return success;
 }
@@ -296,9 +296,9 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     goal_found = findIntermediateGoalShotgun(start_point, goal_point,
                                              &goal_point, &shotgun_path);
     if (verbose_) {
-      ROS_ERROR("%s[Shotgun] Found (%d) intermediate goal at %f %f %f%s",COLOR3, goal_found,
+      ROS_INFO("[Shotgun] Found (%d) intermediate goal at %f %f %f", goal_found,
                goal_point.position_W.x(), goal_point.position_W.y(),
-               goal_point.position_W.z(), RESET_COLOR);
+               goal_point.position_W.z());
     }
     if ((goal_point.position_W - start_point.position_W).norm() <
         kGoalReachedRange) {
@@ -310,11 +310,11 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
   } else if (getMapDistance(goal_point.position_W) <
              constraints_.robot_radius) {
     const double step_size = esdf_map_->voxel_size();
-    //ROS_ERROR("[Voxblox Loco Planner Debug] Goal point < robot radius, distance: %f, robot_radius %f", getMapDistance(goal_point.position_W), constraints_.robot_radius);
+    //ROS_INFO("[Voxblox Loco Planner Debug] Goal point < robot radius, distance: %f, robot_radius %f", getMapDistance(goal_point.position_W), constraints_.robot_radius);
     goal_found =
         findIntermediateGoal(start_point, goal_point, step_size, &goal_point);
-    ROS_ERROR("%s[Voxblox Loco Planner] Found intermediate goal : %f, %f, %f%s",COLOR2, goal_point.position_W.x(), goal_point.position_W.y(),
-               goal_point.position_W.z(), RESET_COLOR);
+    ROS_INFO("[Voxblox Loco Planner] Found intermediate goal : %f, %f, %f", goal_point.position_W.x(), goal_point.position_W.y(),
+               goal_point.position_W.z());
   }
 
   if (!goal_found ||
