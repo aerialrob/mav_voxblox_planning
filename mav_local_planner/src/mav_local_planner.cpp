@@ -11,8 +11,8 @@ MavLocalPlanner::MavLocalPlanner(const ros::NodeHandle &nh,
                                  const ros::NodeHandle &nh_private)
     : nh_(nh),
       nh_private_(nh_private),
-      command_publishing_spinner_(1, &command_publishing_queue_),
-      planning_spinner_(1, &planning_queue_),
+      command_publishing_spinner_(4, &command_publishing_queue_),
+      planning_spinner_(4, &planning_queue_),
       verbose_(false),
       global_frame_id_("map"),
       local_frame_id_("odom"),
@@ -37,7 +37,7 @@ MavLocalPlanner::MavLocalPlanner(const ros::NodeHandle &nh,
   esdf_server_.setTraversabilityRadius(constraints_.robot_radius);
   loco_planner_.setEsdfMap(esdf_server_.getEsdfMapPtr());
   goal_selector_.setParametersFromRos(nh_private_);
-  goal_selector_.setTsdfMap(esdf_server_.getTsdfMapPtr());
+  //goal_selector_.setTsdfMap(esdf_server_.getTsdfMapPtr());
 
   nh_private_.param("verbose", verbose_, verbose_);
   nh_private_.param("global_frame_id", global_frame_id_, global_frame_id_);
@@ -330,6 +330,7 @@ void MavLocalPlanner::avoidCollisionsTowardWaypoint()
 {
   if (current_waypoint_ >= static_cast<int64_t>(waypoints_.size()))
   {
+    ROS_ERROR("Current wp bigger than wps size!");
     return;
   }
   mav_msgs::EigenTrajectoryPoint waypoint = waypoints_[current_waypoint_];
@@ -688,7 +689,7 @@ void MavLocalPlanner::commandPublishTimerCallback(
     msg.header.frame_id = local_frame_id_;
     msg.header.stamp = ros::Time::now();
 
-    ROS_INFO(
+    ROS_WARN(
         "[Mav Local Planner][Command Publish] Publishing %zu samples of %zu. "
         "Start index: %zu Time: %f Start position: %f Start velocity: %f End "
         "time: %f End position: %f",
@@ -714,25 +715,34 @@ void MavLocalPlanner::abort()
   clearTrajectory();
   // Make sure to clear the queue in the controller as well (we send about a
   // second of trajectories ahead).
-  //sendCurrentPose();
+  sendCurrentPose();
 
   num_aborts_++;
   if (num_aborts_ < max_failures_)
   {
-    startPublishingCommands();
     ros::Duration(3.0).sleep();
+    startPublishingCommands();
     avoidCollisionsTowardWaypoint();
   }
   else
   {
-    ROS_ERROR("Max_failures reached!Finishing");
+    updatePlannerStatus("MaxFailures_Finished", -1);
   }
 }
 
 void MavLocalPlanner::clearTrajectory()
 {
+  if (path_queue_.size() <= path_index_)
+  {
+    ROS_WARN("Trying to pause an empty or finished trajectory queue!");
+  }
+  else
+  {
+    //command_publishing_spinner_.stop();
+    command_publishing_timer_.stop();
+  }
+
   std::lock_guard<std::recursive_mutex> guard(path_mutex_);
-  command_publishing_timer_.stop();
   path_queue_.clear();
   path_index_ = 0;
 }
@@ -924,7 +934,14 @@ void MavLocalPlanner::updatePlannerStatus(const char *status, std::int32_t value
   static const char *const colors[4] = {COLOR1, COLOR5, COLOR3, COLOR2};
   if (value < 4)
   {
-    ROS_ERROR("%s[Mav Local Planner][Status] %s %s", colors[value], status, RESET_COLOR);
+    if (value < 0)
+    {
+      ROS_ERROR("%s[Mav Local Planner][Status] %s %s", COLOR7, status, RESET_COLOR);
+    }
+    else
+    {
+      ROS_ERROR("%s[Mav Local Planner][Status] %s %s", colors[value], status, RESET_COLOR);
+    }
   }
 
   planner_status_pub_.publish(value);
