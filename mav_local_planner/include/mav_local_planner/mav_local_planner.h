@@ -101,7 +101,9 @@ private:
     void sendCurrentPose();
 
     // Update planner status
-    void updatePlannerStatus(const char* status, std::int32_t value);
+    void updatePlannerStatus(const char *status, std::int32_t value);
+    // Visualize robot radius in rviz
+    void visualizeRobotRadius(mav_msgs::EigenTrajectoryPoint &point);
 
     ros::NodeHandle nh_;
     ros::NodeHandle nh_private_;
@@ -114,6 +116,7 @@ private:
 
     ros::Publisher command_pub_;
     ros::Publisher path_marker_pub_;
+    ros::Publisher robot_radius_marker_pub_;
     ros::Publisher full_trajectory_pub_;
     ros::Publisher planner_status_pub_;
 

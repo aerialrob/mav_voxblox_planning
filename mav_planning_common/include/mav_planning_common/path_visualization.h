@@ -4,18 +4,24 @@
 #include <mav_msgs/eigen_mav_msgs.h>
 #include <visualization_msgs/Marker.h>
 
-namespace mav_planning {
+namespace mav_planning
+{
 
 // Subsamples a trajectory path and visualizes it.
 visualization_msgs::Marker createMarkerForPath(
-    mav_msgs::EigenTrajectoryPointVector& path, const std::string& frame_id,
-    const std_msgs::ColorRGBA& color, const std::string& name, double scale);
+    mav_msgs::EigenTrajectoryPointVector &path, const std::string &frame_id,
+    const std_msgs::ColorRGBA &color, const std::string &name, double scale);
 
 // Creates little spheres to visualize waypoints.
 visualization_msgs::Marker createMarkerForWaypoints(
-    mav_msgs::EigenTrajectoryPointVector& path, const std::string& frame_id,
-    const std_msgs::ColorRGBA& color, const std::string& name, double scale);
+    mav_msgs::EigenTrajectoryPointVector &path, const std::string &frame_id,
+    const std_msgs::ColorRGBA &color, const std::string &name, double scale);
 
-}  // mav_planning
+// Creates sphere marker to visualize robot radius around position.
+visualization_msgs::Marker createMarkerForRobotRadius(
+    mav_msgs::EigenTrajectoryPoint &point, const std::string &frame_id,
+    const std_msgs::ColorRGBA &color, const std::string &name, double scale);
 
-#endif  // MAV_PLANNING_COMMON_PATH_VISUALIZATION_H_
+} // namespace mav_planning
+
+#endif // MAV_PLANNING_COMMON_PATH_VISUALIZATION_H_

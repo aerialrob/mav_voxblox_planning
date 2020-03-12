@@ -172,7 +172,7 @@ bool GoalPointSelector::selectLocalExplorationGoal(
     }
   }
   ROS_INFO("Goal gain, %f, exploration gain %f, total gain %f", goal_gain, exploration_gain, best_gain);
-  ROS_ERROR("Best point, %f, %f, %f", best_point.position_W.x(), best_point.position_W.y(), best_point.position_W.z());
+  //ROS_ERROR("Best point, %f, %f, %f", best_point.position_W.x(), best_point.position_W.y(), best_point.position_W.z());
 
   *next_goal = best_point;
   return true;
