@@ -67,6 +67,8 @@ MavLocalPlanner::MavLocalPlanner(const ros::NodeHandle &nh,
 
   path_marker_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>(
       "local_path", 1, true);
+  robot_radius_marker_pub_ = nh_private_.advertise<visualization_msgs::Marker>(
+      "robot_radius", 1, true);
   full_trajectory_pub_ =
       nh_private_.advertise<trajectory_msgs::MultiDOFJointTrajectory>(
           "full_trajectory", 1, true);
@@ -324,13 +326,15 @@ void MavLocalPlanner::planningStep()
   ROS_INFO("[Mav Local Planner][Plan Step] Planning finished. Time taken: %f",
            timer.stop());
   visualizePath();
+  mav_msgs::EigenTrajectoryPoint current_point;
+  current_point.position_W = odometry_.position_W;
+  visualizeRobotRadius(current_point);
 }
 
 void MavLocalPlanner::avoidCollisionsTowardWaypoint()
 {
   if (current_waypoint_ >= static_cast<int64_t>(waypoints_.size()))
   {
-    ROS_ERROR("Current wp bigger than wps size!");
     return;
   }
   mav_msgs::EigenTrajectoryPoint waypoint = waypoints_[current_waypoint_];
@@ -409,12 +413,12 @@ void MavLocalPlanner::avoidCollisionsTowardWaypoint()
           }
           else
           {
-            replan_path = true;
+            replan_path = false;
           }
         }
         else
         {
-          replan_path = true;
+          replan_path = false;
         }
       }
       else
@@ -689,7 +693,7 @@ void MavLocalPlanner::commandPublishTimerCallback(
     msg.header.frame_id = local_frame_id_;
     msg.header.stamp = ros::Time::now();
 
-    ROS_WARN(
+    ROS_INFO(
         "[Mav Local Planner][Command Publish] Publishing %zu samples of %zu. "
         "Start index: %zu Time: %f Start position: %f Start velocity: %f End "
         "time: %f End position: %f",
@@ -806,6 +810,16 @@ void MavLocalPlanner::visualizePath()
   }
   marker_array.markers.push_back(path_marker);
   path_marker_pub_.publish(marker_array);
+}
+
+void MavLocalPlanner::visualizeRobotRadius(mav_msgs::EigenTrajectoryPoint &point)
+{
+  // TODO: Split trajectory into two chunks: before and after.
+  visualization_msgs::Marker robot_radius_marker;
+  robot_radius_marker = createMarkerForRobotRadius(point, local_frame_id_,
+                                                   mav_visualization::Color::Blue(),
+                                                   "robot_radius", constraints_.robot_radius);
+  robot_radius_marker_pub_.publish(robot_radius_marker);
 }
 
 double MavLocalPlanner::getMapDistance(const Eigen::Vector3d &position) const
