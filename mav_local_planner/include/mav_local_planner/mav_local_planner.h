@@ -119,6 +119,7 @@ private:
     ros::Publisher robot_radius_marker_pub_;
     ros::Publisher full_trajectory_pub_;
     ros::Publisher planner_status_pub_;
+    ros::Publisher planner_active_pub_;
 
     // Service calls for controlling the local planner.
     // Start will start publishing commands, pause will stop temporarily and you
