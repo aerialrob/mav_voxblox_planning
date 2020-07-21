@@ -73,8 +73,6 @@ namespace mav_planning
         nh_private_.advertise<trajectory_msgs::MultiDOFJointTrajectory>(
             "full_trajectory", 1, true);
     planner_status_pub_ = nh_private_.advertise<std_msgs::Int32>("planner_status", 1, true);
-    planner_active_pub_ = nh_private_.advertise<std_msgs::Int32>("planner_active", 1, true);
-    wp_free_pub_ = nh_private_.advertise<geometry_msgs::PoseArray>("wp_free", 1, true);
 
     // Services.
     start_srv_ = nh_private_.advertiseService(
@@ -123,17 +121,10 @@ namespace mav_planning
     loco_smoother_.setDistanceAndGradientFunction(
         std::bind(&MavLocalPlanner::getMapDistanceAndGradient, this,
                   std::placeholders::_1, std::placeholders::_2));
-    // loco_smoother_.setOptimizeTime(true);
-    // loco_smoother_.setResampleTrajectory(true);
-    // loco_smoother_.setResampleVisibility(true);
-    // loco_smoother_.setNumSegments(5);
-
-
-    ROS_INFO_STREAM("[Mav Local Planner__]smoother_name_  "<< smoother_name_);
-    // ROS_INFO_STREAM("[Mav Local Planner__]goal_selector_strategy  "<< goal_selector_strategy_);
-    
-
-
+    loco_smoother_.setOptimizeTime(true);
+    loco_smoother_.setResampleTrajectory(true);
+    loco_smoother_.setResampleVisibility(true);
+    loco_smoother_.setNumSegments(5);
   }
 
   void MavLocalPlanner::odometryCallback(const nav_msgs::Odometry &msg)
@@ -257,11 +248,8 @@ namespace mav_planning
     {
       // First check how many waypoints we haven't covered yet are in free space.
       mav_msgs::EigenTrajectoryPointVector free_waypoints;
-      geometry_msgs::PoseArray free_waypoints_pose;
       // Do we need the odometry in here? Let's see.
       mav_msgs::EigenTrajectoryPoint current_point;
-
-      
       current_point.position_W = odometry_.position_W;
       current_point.orientation_W_B = odometry_.orientation_W_B;
 
@@ -283,12 +271,8 @@ namespace mav_planning
           break;
         }
         free_waypoints.push_back(waypoint);
-        geometry_msgs::PoseStamped pose;          
-        mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(waypoint, &pose); 
-        free_waypoints_pose.poses.push_back(pose.pose);
       }
 
-      
       ROS_INFO("[Mav Local Planner] Of %zu waypoints, %zu are free.",
                waypoints_.size(), free_waypoints.size());
       bool success = false;
@@ -310,8 +294,6 @@ namespace mav_planning
               "waypoints.",
               free_waypoints.size());
           success = isPathCollisionFree(path);
-          wp_free_pub_.publish(free_waypoints_pose);  
-
           if (success)
           {
             replacePath(path);
@@ -525,27 +507,22 @@ namespace mav_planning
     bool success = false;
     if (smoother_name_ == "loco")
     {
-      ROS_INFO("USING LOCO");
       if (waypoints.size() == 2)
       {
-        ROS_INFO("USING getPathBetweenTwoPoints");
         success = loco_smoother_.getPathBetweenTwoPoints(waypoints[0],
                                                          waypoints[1], path);
       }
       else
       {
-        ROS_INFO("USING getPathBetweenWaypoints");
         success = loco_smoother_.getPathBetweenWaypoints(waypoints, path);
       }
     }
     else if (smoother_name_ == "polynomial")
     {
-      ROS_INFO("USING polynomial");
       success = poly_smoother_.getPathBetweenWaypoints(waypoints, path);
     }
     else if (smoother_name_ == "ramp")
     {
-      ROS_INFO("USING ramp");
       success = ramp_smoother_.getPathBetweenWaypoints(waypoints, path);
     }
     else
@@ -578,7 +555,6 @@ namespace mav_planning
   void MavLocalPlanner::finishWaypoints()
   {
     current_waypoint_ = waypoints_.size();
-    updatePlannerStatus("Finished", 6);
     ROS_ERROR("%s[Mav Local Planner][Status] %s %s", COLOR4, "Finished", RESET_COLOR);
   }
 
@@ -617,7 +593,6 @@ namespace mav_planning
       const ros::TimerEvent &event)
   {
     constexpr size_t kQueueBuffer = 0;
-    int planner_active = 0;
     if (path_index_ < path_queue_.size())
     {
       std::lock_guard<std::recursive_mutex> guard(path_mutex_);
@@ -666,10 +641,9 @@ namespace mav_planning
       command_pub_.publish(msg);
       path_index_ += number_to_publish;
       should_replan_.notify();
-      planner_active = 1;
-      planner_active_pub_.publish(planner_active);
     }else{
-      planner_active_pub_.publish(planner_active);
+      updatePlannerStatus("Finished", 6);
+
     }
     // Does there need to be an else????
   }
@@ -682,7 +656,6 @@ namespace mav_planning
     // Make sure to clear the queue in the controller as well (we send about a
     // second of trajectories ahead).
     sendCurrentPose();
-    startPublishingCommands();
   }
 
   void MavLocalPlanner::clearTrajectory()

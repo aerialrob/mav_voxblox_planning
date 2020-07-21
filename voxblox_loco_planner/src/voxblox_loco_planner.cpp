@@ -5,6 +5,9 @@
 #include "voxblox_loco_planner/color.h"
 #include "voxblox_loco_planner/voxblox_loco_planner.h"
 
+#include "geometry_msgs/PoseStamped.h"
+#include <mav_msgs/conversions.h>
+
 namespace mav_planning {
 
 VoxbloxLocoPlanner::VoxbloxLocoPlanner(const ros::NodeHandle& nh,
@@ -46,6 +49,9 @@ VoxbloxLocoPlanner::VoxbloxLocoPlanner(const ros::NodeHandle& nh,
   // ROS debug visualization.
   planning_marker_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>(
       "planning_markers", 1, true);
+
+  goal_loco_planner_pose_pub_ = nh_private_.advertise<geometry_msgs::PoseStamped>(
+      "goal_local_pose", 1, true);
 }
 
 void VoxbloxLocoPlanner::setEsdfMap(
@@ -184,6 +190,10 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
 
   if (success) {
     // TODO(helenol): Retime the trajectory!
+    
+    geometry_msgs::PoseStamped pose;          
+    mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(goal, &pose); 
+    goal_loco_planner_pose_pub_.publish(pose);
   }
 
   if (verbose_) {

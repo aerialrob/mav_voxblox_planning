@@ -25,6 +25,11 @@ void LocoSmoother::setParametersFromRos(const ros::NodeHandle& nh) {
 
   // Force some settings.
   split_at_collisions_ = false;
+  
+  ROS_WARN_STREAM("rnum_segments_   " << num_segments_);
+  ROS_WARN_STREAM("resample_trajectory   " << resample_trajectory_);
+  ROS_WARN_STREAM("resample_visbility   " << resample_visibility_);
+  ROS_WARN_STREAM("add_waypoints   " << add_waypoints_);
 }
 
 bool LocoSmoother::getTrajectoryBetweenWaypoints(
@@ -46,12 +51,16 @@ bool LocoSmoother::getTrajectoryBetweenWaypoints(
     // If resampling the visibility graph, then basically divide the whole thing
     // into evenly spaced waypoints on the graph.
     mav_msgs::EigenTrajectoryPoint::Vector resampled_waypoints;
+    
     resampleWaypointsFromVisibilityGraph(num_segments_, constraints_, waypoints,
                                          &resampled_waypoints);
     PolynomialSmoother::getTrajectoryBetweenWaypoints(resampled_waypoints,
                                                       &traj_initial);
+
+    ROS_WARN("resample visibility graph");
   } else {
     PolynomialSmoother::getTrajectoryBetweenWaypoints(waypoints, &traj_initial);
+    ROS_WARN("resample PolynomialSmoother");
   }
 
   constexpr int N = 10;
@@ -66,25 +75,33 @@ bool LocoSmoother::getTrajectoryBetweenWaypoints(
     loco.setDistanceAndGradientFunction(
         std::bind(&LocoSmoother::getMapDistanceAndGradient, this,
                   std::placeholders::_1, std::placeholders::_2));
+                  ROS_WARN("setDistanceAndGradientFunction");
   } else {
     loco.setDistanceFunction(map_distance_func_);
+    ROS_WARN("setDistanceFunction");
   }
 
   if (resample_trajectory_ && !resample_visibility_) {
     loco.setupFromTrajectoryAndResample(traj_initial, num_segments_);
+    ROS_WARN("setupFromTrajectoryAndResample");
   } else {
     loco.setupFromTrajectory(traj_initial);
+    ROS_WARN("setupFromTrajectory");
   }
   if (add_waypoints_) {
+    ROS_WARN("add_waypoints_");
     loco.setWaypointsFromTrajectory(traj_initial);
   }
 
   loco.solveProblem();
   loco.getTrajectory(trajectory);
 
+  ROS_WARN("trajectory_adquired");
+
   if (scale_time_) {
     trajectory->scaleSegmentTimesToMeetConstraints(constraints_.v_max,
                                                    constraints_.a_max);
+                                                   ROS_WARN("scaleSegmentTimesToMeetConstraints");
   }
 
   return true;

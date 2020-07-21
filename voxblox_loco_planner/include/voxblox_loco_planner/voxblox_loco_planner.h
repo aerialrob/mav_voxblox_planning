@@ -84,6 +84,7 @@ class VoxbloxLocoPlanner {
 
   // Debug publishers.
   ros::Publisher planning_marker_pub_;
+  ros::Publisher goal_loco_planner_pose_pub_;
 
   // Settings for physical constriants.
   PhysicalConstraints constraints_;
