@@ -93,6 +93,8 @@ void Loco<N>::setupFromVertices(
       }
     }
 
+   std::cout << "DOUBLE OR FREE before remove constraints" << "\n";
+
     // Now remove the goal position constraint.
     vertices->back().removeConstraint(
         mav_trajectory_generation::derivative_order::POSITION);
@@ -137,6 +139,7 @@ void Loco<N>::setupFromTrajectory(
   vertices.emplace_back(trajectory.getGoalVertex(
       mav_trajectory_generation::getHighestDerivativeFromN(N)));
 
+  std::cout << "Vertices " << vertices.size() << "Times " << times.size() << "\n";
   poly_opt_.setupFromVertices(vertices, times, config_.derivative_to_optimize);
 
   // Now we remove the constraints, and re-set all the free constraints. Same as
@@ -174,9 +177,13 @@ void Loco<N>::setupFromTrajectory(
     d_all = M_pinv_ * A_ * p[i];
     d_p[i] = d_all.tail(poly_opt_.getNumberFreeConstraints());
   }
-  poly_opt_.setFreeConstraints(d_p);
+  std::cout << "Number of free constraints " << poly_opt_.getNumberFreeConstraints() <<"\n";
 
+  std::cout << "!!!!!!! setup from trajectory " << "\n";
+  poly_opt_.setFreeConstraints(d_p);
+  std::cout << "!!!!!!! setFreeConstraints " << "\n";
   setupProblem();
+  std::cout << "!!!!!!! setupProblem " << "\n";
 
   timer_setup.Stop();
 }
@@ -247,6 +254,7 @@ void Loco<N>::setupFromTrajectoryAndResample(
     d_all = M_pinv_ * A_ * p[i];
     d_p[i] = d_all.tail(poly_opt_.getNumberFreeConstraints());
   }
+  std::cout << "setup from traj and resample " << "\n";
   poly_opt_.setFreeConstraints(d_p);
 
   setupProblem();
@@ -311,7 +319,7 @@ template <int N>
 void Loco<N>::solveProblemCeres() {
   std::vector<Eigen::VectorXd> d_p_vec;
   poly_opt_.getFreeConstraints(&d_p_vec);
-
+  std::cout << "Get free constraints " << d_p_vec.size() << "num_free " << num_free_ << "K " << K_<< "\n";
   std::vector<double> parameters(num_free_ * K_);
 
   int i = 0;
@@ -374,7 +382,7 @@ void Loco<N>::setParameterVector(const Eigen::VectorXd& parameters) {
   for (int k = 0; k < K_; ++k) {
     d_p[k] = parameters.segment(num_free_ * k, num_free_);
   }
-
+  std::cout <<"SET parameter vector " << "\n";
   poly_opt_.setFreeConstraints(d_p);
 }
 
@@ -909,7 +917,7 @@ double Loco<N>::computePotentialCostAndGradient(
 template <int N>
 bool Loco<N>::NestedCeresFunction::Evaluate(const double* parameters,
                                             double* cost,
-                                            double* gradient) const {
+                                            double* gradient){
   CHECK_NOTNULL(parent_);
   // Step 1: allocate all the necessary Eigen vectors.
   std::vector<Eigen::VectorXd> d_p(K_, Eigen::VectorXd::Zero(num_free_));
@@ -925,7 +933,9 @@ bool Loco<N>::NestedCeresFunction::Evaluate(const double* parameters,
   }
 
   // Step 3: set the d_p of the underlying problem.
+  mtx_.lock();
   parent_->setFreeDerivatives(d_p);
+  mtx_.unlock();
 
   // Step 4: compute costs and gradients.
   *cost = parent_->computeTotalCostAndGradients(&grad_vec);

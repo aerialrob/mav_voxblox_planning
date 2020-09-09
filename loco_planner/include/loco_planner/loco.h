@@ -9,6 +9,8 @@
 #include <mav_msgs/eigen_mav_msgs.h>
 #include <mav_trajectory_generation/polynomial_optimization_linear.h>
 #include <mav_trajectory_generation/timing.h>
+#include <mutex>
+#include <thread>   
 
 namespace loco_planner {
 
@@ -23,15 +25,15 @@ class Loco {
     int derivative_to_optimize =
         mav_trajectory_generation::derivative_order::JERK;
     double epsilon = 0.5;
-    double robot_radius = 0.5;
+    double robot_radius = 1.0;
     bool soft_goal_constraint = false;
     double w_d = 0.1;   // Smoothness cost weight.
     double w_c = 10.0;  // Collision cost weight.
     double w_g = 2.5;   // Soft goal cost weight (if using soft goals).
     double w_w = 1.0;   // Waypoint cost weight (if waypoints set).
     double min_collision_sampling_dt = 0.1;
-    double map_resolution = 0.1;  // Size of voxels in the map.
-    bool verbose = false;
+    double map_resolution = 0.2;  // Size of voxels in the map.
+    bool verbose = true;
   };
 
   typedef std::function<double(const Eigen::VectorXd& position)>
@@ -185,13 +187,14 @@ class Loco {
         : K_(K), num_free_(num_free), parent_(parent) {}
 
     virtual bool Evaluate(const double* parameters, double* cost,
-                          double* gradient) const;
+                          double* gradient);
     virtual int NumParameters() const;
 
    private:
     int K_;
     int num_free_;
     Loco* parent_;
+    std::mutex mtx_;
   };
 
   // This is where you store the matrices.

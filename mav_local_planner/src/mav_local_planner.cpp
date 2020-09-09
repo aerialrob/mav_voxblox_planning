@@ -58,9 +58,9 @@ namespace mav_planning
     odometry_sub_ = nh_.subscribe(mav_msgs::default_topics::ODOMETRY, 1,
                                   &MavLocalPlanner::odometryCallback, this);
     waypoint_sub_ =
-        nh_.subscribe("waypoint", 1, &MavLocalPlanner::waypointCallback, this);
+        nh_.subscribe("waypoint", 1000, &MavLocalPlanner::waypointCallback, this);
     waypoint_list_sub_ = nh_.subscribe(
-        "waypoint_list", 1, &MavLocalPlanner::waypointListCallback, this);
+        "waypoint_list", 1000, &MavLocalPlanner::waypointListCallback, this);
 
     command_pub_ = nh_.advertise<trajectory_msgs::MultiDOFJointTrajectory>(
         mav_msgs::default_topics::COMMAND_TRAJECTORY, 1);
@@ -130,6 +130,8 @@ namespace mav_planning
 
 
     ROS_INFO_STREAM("[Mav Local Planner__]smoother_name_  "<< smoother_name_);
+    path_found_ = false;
+    planner_active = 0;
     // ROS_INFO_STREAM("[Mav Local Planner__]goal_selector_strategy  "<< goal_selector_strategy_);
     
 
@@ -187,7 +189,7 @@ namespace mav_planning
   void MavLocalPlanner::planningTimerCallback(const ros::TimerEvent &event)
   {
     // Wait on the condition variable from the publishing...
-    if (should_replan_.wait_for(replan_dt_))
+    if (should_replan_.wait_for(replan_dt_) && path_found_)
     {
       if (verbose_)
       {
@@ -310,7 +312,9 @@ namespace mav_planning
               "waypoints.",
               free_waypoints.size());
           success = isPathCollisionFree(path);
-          wp_free_pub_.publish(free_waypoints_pose);  
+          if (success){
+            wp_free_pub_.publish(free_waypoints_pose); 
+          } 
 
           if (success)
           {
@@ -322,10 +326,12 @@ namespace mav_planning
                 "waypoint size: %zu, current point: %zd, added? %d",
                 free_waypoints.size(), waypoints_.size(), current_waypoint_,
                 waypoints_added);
+            path_found_ = true;
           }
           else
           {
             ROS_WARN("[Mav Local Planner] But path was not collision free. :(");
+            path_found_ = false;
           }
         }
       }
@@ -454,6 +460,7 @@ namespace mav_planning
       {
         num_aborts_ = 0;
         updatePlannerStatus("Planning_success", 3);
+        path_found_ = true;
         if (trajectory.getMaxTime() <= 0.1)
         {
           nextWaypoint();
@@ -470,6 +477,7 @@ namespace mav_planning
       }
       else
       {
+        path_found_ = false;
         bool plan_b = dealWithFailure();
         if (plan_b)
         {
@@ -501,6 +509,7 @@ namespace mav_planning
               mav_trajectory_generation::sampleWholeTrajectory(
                   trajectory, constraints_.sampling_dt, &path);
               replacePath(path);
+              path_found_ = true;
             }
           }
         }
@@ -617,7 +626,7 @@ namespace mav_planning
       const ros::TimerEvent &event)
   {
     constexpr size_t kQueueBuffer = 0;
-    int planner_active = 0;
+    //planner_active = 0;
     if (path_index_ < path_queue_.size())
     {
       std::lock_guard<std::recursive_mutex> guard(path_mutex_);
@@ -669,6 +678,7 @@ namespace mav_planning
       planner_active = 1;
       planner_active_pub_.publish(planner_active);
     }else{
+      planner_active = 0;
       planner_active_pub_.publish(planner_active);
     }
     // Does there need to be an else????

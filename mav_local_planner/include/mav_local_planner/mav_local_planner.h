@@ -162,7 +162,8 @@ private:
     double command_publishing_dt_;
     double replan_dt_;
     double replan_lookahead_sec_;
-
+    bool path_found_;       // whether the planner could find a trajectory or not
+    int planner_active;
     // Settings -- general planning.
     bool avoid_collisions_;
     bool autostart_; // Whether to auto-start publishing any new path or wait

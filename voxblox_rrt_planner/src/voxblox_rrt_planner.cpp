@@ -46,10 +46,11 @@ VoxbloxRrtPlanner::VoxbloxRrtPlanner(const ros::NodeHandle& nh,
   path_pub_srv_ = nh_private_.advertiseService(
       "publish_path", &VoxbloxRrtPlanner::publishPathCallback, this);
 
+  std::cout << "Get ESDF" <<"\n";
   esdf_map_ = voxblox_server_.getEsdfMapPtr();
-  CHECK(esdf_map_);
+  //CHECK(esdf_map_);
   tsdf_map_ = voxblox_server_.getTsdfMapPtr();
-  CHECK(tsdf_map_);
+  //CHECK(tsdf_map_);
 
   if (!input_filepath.empty()) {
     // Verify that the map has an ESDF layer, otherwise generate it.

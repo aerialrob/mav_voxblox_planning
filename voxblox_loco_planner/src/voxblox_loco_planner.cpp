@@ -35,6 +35,10 @@ VoxbloxLocoPlanner::VoxbloxLocoPlanner(const ros::NodeHandle& nh,
   nh_private_.param("use_shotgun", use_shotgun_, use_shotgun_);
   nh_private_.param("use_shotgun_path", use_shotgun_path_, use_shotgun_path_);
 
+  nh_private_.param("num_random_restarts", num_random_restarts_, num_random_restarts_);
+  nh_private_.param("num_segments", num_segments_, num_segments_);
+  nh_private_.param("random_restart_magnitude", random_restart_magnitude_, random_restart_magnitude_);
+
   loco_.setRobotRadius(constraints_.robot_radius);
 
   double loco_epsilon_inflation = 0.5;
@@ -152,19 +156,24 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
   }
 
   // If we're doing hotstarts, need to save the previous d_p.
-
+  ROS_WARN("Initial path size %d, num segments %d!",initial_path.size(), num_segments_ );
   // Use initial path if provided, otherwise just plan between goals.
-  if (!initial_path.empty() && num_segments_ == initial_path.size() - 1) {
+  if (!initial_path.empty()){ //&& num_segments_ == initial_path.size() - 1 ) {
+    ROS_WARN("Initial path provided!");
+    //num_segments_ == initial_path.size() - 1;
     mav_trajectory_generation::Trajectory traj_initial;
     getInitialTrajectory(initial_path, total_time, &traj_initial);
     loco_.setupFromTrajectory(traj_initial);
   } else {
+    ROS_WARN("setup From Trajectory Points!");
     loco_.setupFromTrajectoryPoints(start, goal, num_segments_, total_time);
   }
   Eigen::VectorXd x0, x;
   loco_.getParameterVector(&x0);
+  ROS_WARN("getParameterVector");
   x = x0;
   loco_.solveProblem();
+  ROS_WARN("solveProblem");
 
   // Check if this path is collision-free.
   constexpr double kCollisionSamplingDt = 0.1;
@@ -178,10 +187,19 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     success = isPathCollisionFree(path);
     if (success) {
       // Awesome, collision-free path.
-      //ROS_ERROR("[Voxblox Loco Planner] Collision free");
+      ROS_ERROR("[Voxblox Loco Planner] Collision free");
       break;
     }
-    //ROS_ERROR("[Voxblox Loco Planner] Collision path");
+  
+    // Visualize collision path
+    visualization_msgs::MarkerArray marker_array;
+    marker_array.markers.push_back(createMarkerForPath(
+          path, "odom", mav_visualization::Color::Blue(),
+          "collision_path", 0.05));
+    planning_marker_pub_.publish(marker_array);
+    ROS_ERROR("[Voxblox Loco Planner] Collision path");
+
+
     // Otherwise let's do some random restarts.
     x = x0 + random_restart_magnitude_ * Eigen::VectorXd::Random(x.size());
     loco_.setParameterVector(x);
@@ -194,6 +212,9 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     geometry_msgs::PoseStamped pose;          
     mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(goal, &pose); 
     goal_loco_planner_pose_pub_.publish(pose);
+    Eigen::Vector3d check_pose{pose.pose.position.x, pose.pose.position.y, pose.pose.position.z};
+    ROS_ERROR("Local point map distance %f, robot radius %f ", getMapDistance(check_pose), constraints_.robot_radius);
+
   }
 
   if (verbose_) {
@@ -210,7 +231,12 @@ bool VoxbloxLocoPlanner::getInitialTrajectory(
 
   mav_trajectory_generation::PolynomialOptimization<kN> poly_opt(kD);
 
+  ROS_WARN("Get Initial Trajectory waypoints %d", waypoints.size());
   int num_vertices = waypoints.size();
+  if( num_vertices <= 2){
+    num_vertices = num_segments_ + 1;
+  }
+ 
   int derivative_to_optimize =
       mav_trajectory_generation::derivative_order::JERK;
 
@@ -275,6 +301,9 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
       kGoalReachedRange) {
     if (verbose_) {
       ROS_INFO("[Voxblox Loco Planner] Goal already reached!");
+      geometry_msgs::PoseStamped pose;          
+      mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(goal_point, &pose); 
+      goal_loco_planner_pose_pub_.publish(pose);
     }
     return true;
   }
@@ -312,9 +341,12 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     }
     if ((goal_point.position_W - start_point.position_W).norm() <
         kGoalReachedRange) {
-      if (verbose_) {
-        ROS_INFO("[Voxblox Loco Planner] Intermediate goal already reached!");
-      }
+      //if (verbose_) {
+        ROS_WARN("[Voxblox Loco Planner] Intermediate goal already reached!");
+        geometry_msgs::PoseStamped pose;          
+        mav_msgs::msgPoseStampedFromEigenTrajectoryPoint(start_point, &pose); 
+        goal_loco_planner_pose_pub_.publish(pose);
+      //}
       return true;
     }
   } else if (getMapDistance(goal_point.position_W) <
@@ -339,7 +371,7 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
     mav_msgs::EigenTrajectoryPointVector vis_vector;
     vis_vector.push_back(goal_point);
     marker_array.markers.push_back(createMarkerForWaypoints(
-        vis_vector, "odom", mav_visualization::Color::Purple(), "goal", 0.2));
+        vis_vector, "odom", mav_visualization::Color::Red(), "goal", 0.2));
     marker_array.markers.push_back(createMarkerForPath(
         shotgun_path, "odom", mav_visualization::Color::Pink(), "shotgun_path",
         0.1));
