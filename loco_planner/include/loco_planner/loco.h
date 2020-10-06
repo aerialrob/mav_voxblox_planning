@@ -187,7 +187,7 @@ class Loco {
         : K_(K), num_free_(num_free), parent_(parent) {}
 
     virtual bool Evaluate(const double* parameters, double* cost,
-                          double* gradient);
+                          double* gradient) const;
     virtual int NumParameters() const;
 
    private:

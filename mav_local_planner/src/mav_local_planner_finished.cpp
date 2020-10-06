@@ -356,8 +356,8 @@ namespace mav_planning
     {
       std::lock_guard<std::recursive_mutex> guard(path_mutex_);
 
-      ROS_INFO(
-          "[Mav Local Planner][Plan Step] Trying to replan on existing path.");
+      // ROS_INFO(
+      //     "[Mav Local Planner][Plan Step] Trying to replan on existing path.");
       mav_msgs::EigenTrajectoryPointVector path_chunk;
       size_t replan_start_index;
       {

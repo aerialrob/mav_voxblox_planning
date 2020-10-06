@@ -163,6 +163,19 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     //num_segments_ == initial_path.size() - 1;
     mav_trajectory_generation::Trajectory traj_initial;
     getInitialTrajectory(initial_path, total_time, &traj_initial);
+
+
+    mav_msgs::EigenTrajectoryPoint::Vector initial_path;
+    mav_trajectory_generation::sampleWholeTrajectory(
+        traj_initial, 0.1, &initial_path);
+    // Visualize collision path
+    visualization_msgs::MarkerArray marker_array;
+    marker_array.markers.push_back(createMarkerForPath(
+          initial_path, "odom", mav_visualization::Color::Red(),
+          "initial_path", 0.05));
+    planning_marker_pub_.publish(marker_array);
+    ROS_ERROR("[Voxblox Loco Planner] Initial path");
+
     loco_.setupFromTrajectory(traj_initial);
   } else {
     ROS_WARN("setup From Trajectory Points!");
@@ -238,7 +251,7 @@ bool VoxbloxLocoPlanner::getInitialTrajectory(
   }
  
   int derivative_to_optimize =
-      mav_trajectory_generation::derivative_order::JERK;
+      mav_trajectory_generation::derivative_order::ACCELERATION;
 
   mav_trajectory_generation::Vertex::Vector vertices(
       num_vertices, mav_trajectory_generation::Vertex(kD));

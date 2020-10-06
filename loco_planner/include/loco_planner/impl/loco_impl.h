@@ -917,7 +917,7 @@ double Loco<N>::computePotentialCostAndGradient(
 template <int N>
 bool Loco<N>::NestedCeresFunction::Evaluate(const double* parameters,
                                             double* cost,
-                                            double* gradient){
+                                            double* gradient) const {
   CHECK_NOTNULL(parent_);
   // Step 1: allocate all the necessary Eigen vectors.
   std::vector<Eigen::VectorXd> d_p(K_, Eigen::VectorXd::Zero(num_free_));
@@ -933,9 +933,7 @@ bool Loco<N>::NestedCeresFunction::Evaluate(const double* parameters,
   }
 
   // Step 3: set the d_p of the underlying problem.
-  mtx_.lock();
   parent_->setFreeDerivatives(d_p);
-  mtx_.unlock();
 
   // Step 4: compute costs and gradients.
   *cost = parent_->computeTotalCostAndGradients(&grad_vec);
