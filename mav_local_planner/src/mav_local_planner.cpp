@@ -413,12 +413,12 @@ void MavLocalPlanner::avoidCollisionsTowardWaypoint()
           }
           else
           {
-            replan_path = false;
+            replan_path = true;
           }
         }
         else
         {
-          replan_path = false;
+          replan_path = true;
         }
       }
       else
