@@ -367,10 +367,13 @@ namespace mav_planning
     const int64_t kDtNs =
         mav_msgs::secondsToNanoseconds(constraints_.sampling_dt);
 
-    ROS_INFO_STREAM("[Mav Local Planner][Plan Step] Current odometry: "
+    if(verbose_){
+        ROS_INFO_STREAM("[Mav Local Planner][Plan Step] Current odometry: "
                     << odometry_.position_W.transpose() << " Tracking waypoint ["
                     << current_waypoint_
                     << "]: " << waypoint.position_W.transpose());
+
+    }
 
     // Save success and Trajectory.
     mav_trajectory_generation::Trajectory trajectory;
@@ -379,9 +382,11 @@ namespace mav_planning
     if (!path_queue_.empty())
     {
       std::lock_guard<std::recursive_mutex> guard(path_mutex_);
-
-      ROS_INFO(
+      if(verbose_){
+          ROS_INFO(
           "[Mav Local Planner][Plan Step] Trying to replan on existing path.");
+      }
+
       mav_msgs::EigenTrajectoryPointVector path_chunk;
       size_t replan_start_index;
       {
@@ -409,16 +414,23 @@ namespace mav_planning
       mav_msgs::EigenTrajectoryPointVector path_replanned;
       bool replan_path = false;
       bool path_chunk_collision_free = isPathCollisionFree(path_chunk);
-      ROS_INFO(
+
+      if(verbose_){
+          ROS_INFO(
           "[Mav Local Planner][Plan Step] Existing chunk is collision free? %d",
           path_chunk_collision_free);
+      }
+
       updatePlannerStatus("Replanning", path_chunk_collision_free + 4);
       bool goal_reached = ((path_chunk.back().position_W - waypoint.position_W).norm() < kCloseEnough);
       if (path_chunk_collision_free)
       {
-        ROS_INFO(
+        if(verbose_){
+            ROS_INFO(
             "[Mav Local Planner][Plan Step] Current plan is valid and still cannot get to the goal wp, just "
             "rollin' with it.");
+        }
+
         nextWaypoint();
         return;
       }
@@ -573,13 +585,11 @@ namespace mav_planning
     if (current_waypoint_ >= static_cast<int64_t>(waypoints_.size()) - 1)
     {
       current_waypoint_ = waypoints_.size() - 1;
-      ROS_INFO("[Mav Local Planner][next wp] false, current_waypoint_, %zu, waypoints_.size(), %zu ", current_waypoint_, waypoints_.size());
       return false;
     }
     else
     {
       current_waypoint_++;
-      ROS_INFO("[Mav Local Planner][next wp] true, current_waypoint_, %zu, waypoints_.size(), %zu ", current_waypoint_, waypoints_.size());
       return true;
     }
   }
@@ -660,7 +670,8 @@ namespace mav_planning
       msg.header.frame_id = local_frame_id_;
       msg.header.stamp = ros::Time::now();
 
-      ROS_INFO(
+      if(verbose_){
+          ROS_INFO(
           "[Mav Local Planner][Command Publish] Publishing %zu samples of %zu. "
           "Start index: %zu Time: %f Start position: %f Start velocity: %f End "
           "time: %f End position: %f",
@@ -670,6 +681,8 @@ namespace mav_planning
           trajectory_to_publish.front().velocity_W.x(),
           trajectory_to_publish.back().time_from_start_ns * 1.0e-9,
           trajectory_to_publish.back().position_W.x());
+      }
+
       mav_msgs::msgMultiDofJointTrajectoryFromEigen(trajectory_to_publish, &msg);
 
       command_pub_.publish(msg);
