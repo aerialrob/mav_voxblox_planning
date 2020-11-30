@@ -23,7 +23,7 @@ struct ShotgunParameters {
   // Some params for evaluating the goodness of the point?
 
   // More special herustic-y hack-y params.
-  float robot_radius_inflation = 0.1;
+  float robot_radius_inflation = 0.3;
 };
 
 // A "planner" that uses a set of probabilistic particles to find an initial

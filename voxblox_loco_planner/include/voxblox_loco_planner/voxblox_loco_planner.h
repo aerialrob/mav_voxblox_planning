@@ -19,7 +19,7 @@ namespace mav_planning {
 
 class VoxbloxLocoPlanner {
  public:
-  static constexpr int kN = 10;
+  static constexpr int kN = 4;
   static constexpr int kD = 3;
 
   VoxbloxLocoPlanner(const ros::NodeHandle& nh,
@@ -77,7 +77,10 @@ class VoxbloxLocoPlanner {
   bool getInitialTrajectory(
       const mav_msgs::EigenTrajectoryPoint::Vector& waypoints,
       double total_time,
-      mav_trajectory_generation::Trajectory* trajectory) const;
+      mav_trajectory_generation::Trajectory* trajectory);
+
+  double computeSegmentTime( const mav_msgs::EigenTrajectoryPoint &start, 
+        const mav_msgs::EigenTrajectoryPoint &goal);
 
   ros::NodeHandle nh_;
   ros::NodeHandle nh_private_;
@@ -85,6 +88,7 @@ class VoxbloxLocoPlanner {
   // Debug publishers.
   ros::Publisher planning_marker_pub_;
   ros::Publisher goal_loco_planner_pose_pub_;
+  ros::Publisher shortened_path_pub_;
 
   // Settings for physical constriants.
   PhysicalConstraints constraints_;
@@ -103,7 +107,7 @@ class VoxbloxLocoPlanner {
   bool use_shotgun_path_;
 
   // Planner.
-  loco_planner::Loco<kN> loco_;
+  //loco_planner::Loco<kN> loco_;
 
   // Optional intermediate planner.
   ShotgunPlanner shotgun_;

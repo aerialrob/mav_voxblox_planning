@@ -23,7 +23,7 @@ class Loco {
  public:
   struct Config {
     int derivative_to_optimize =
-        mav_trajectory_generation::derivative_order::JERK;
+        mav_trajectory_generation::derivative_order::VELOCITY;
     double epsilon = 0.5;
     double robot_radius = 1.0;
     bool soft_goal_constraint = false;

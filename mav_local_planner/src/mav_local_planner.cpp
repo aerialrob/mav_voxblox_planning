@@ -101,7 +101,7 @@ namespace mav_planning
 
     // Set up yaw policy.
     yaw_policy_.setPhysicalConstraints(constraints_);
-    yaw_policy_.setYawPolicy(YawPolicy::PolicyType::kVelocityVector);
+    yaw_policy_.setYawPolicy(YawPolicy::PolicyType::kAnticipateVelocityVector);
 
     // Set up smoothers.
     const double voxel_size = esdf_server_.getEsdfMapPtr()->voxel_size();

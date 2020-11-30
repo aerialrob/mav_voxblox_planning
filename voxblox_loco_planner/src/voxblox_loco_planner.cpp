@@ -22,8 +22,9 @@ VoxbloxLocoPlanner::VoxbloxLocoPlanner(const ros::NodeHandle& nh,
       random_restart_magnitude_(0.5),
       planning_horizon_m_(4.0),
       use_shotgun_(false),
-      use_shotgun_path_(true),
-      loco_(kD) {
+      use_shotgun_path_(true)
+      //loco_(kD) 
+      {
   constraints_.setParametersFromRos(nh_private_);
   shotgun_.setParametersFromRos(nh_private_);
 
@@ -39,12 +40,12 @@ VoxbloxLocoPlanner::VoxbloxLocoPlanner(const ros::NodeHandle& nh,
   nh_private_.param("num_segments", num_segments_, num_segments_);
   nh_private_.param("random_restart_magnitude", random_restart_magnitude_, random_restart_magnitude_);
 
-  loco_.setRobotRadius(constraints_.robot_radius);
+ //loco_setRobotRadius(constraints_.robot_radius);
 
   double loco_epsilon_inflation = 0.5;
   nh_private_.param("loco_epsilon_inflation", loco_epsilon_inflation,
                     loco_epsilon_inflation);
-  loco_.setEpsilon(constraints_.robot_radius + loco_epsilon_inflation);
+ //loco_setEpsilon(constraints_.robot_radius + loco_epsilon_inflation);
 
   // Set up optional shotgun intermediate point selection.
   shotgun_.setPhysicalConstraints(constraints_);
@@ -56,6 +57,8 @@ VoxbloxLocoPlanner::VoxbloxLocoPlanner(const ros::NodeHandle& nh,
 
   goal_loco_planner_pose_pub_ = nh_private_.advertise<geometry_msgs::PoseStamped>(
       "goal_local_pose", 1, true);
+
+  shortened_path_pub_ = nh_private_.advertise<trajectory_msgs::MultiDOFJointTrajectory>("shortened_path", 1, true);
 }
 
 void VoxbloxLocoPlanner::setEsdfMap(
@@ -63,10 +66,10 @@ void VoxbloxLocoPlanner::setEsdfMap(
   CHECK(esdf_map);
   esdf_map_ = esdf_map;
 
-  loco_.setDistanceAndGradientFunction(
-      std::bind(&VoxbloxLocoPlanner::getMapDistanceAndGradientVector, this,
-                std::placeholders::_1, std::placeholders::_2));
-  loco_.setMapResolution(esdf_map->voxel_size());
+ //loco_setDistanceAndGradientFunction(
+  //    std::bind(&VoxbloxLocoPlanner::getMapDistanceAndGradientVector, this,
+  //              std::placeholders::_1, std::placeholders::_2));
+ //loco_setMapResolution(esdf_map->voxel_size());
 
   shotgun_.setEsdfMap(esdf_map);
   path_shortener_.setEsdfLayer(esdf_map->getEsdfLayerPtr());
@@ -156,14 +159,14 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
   }
 
   // If we're doing hotstarts, need to save the previous d_p.
-  ROS_WARN("Initial path size %d, num segments %d!",initial_path.size(), num_segments_ );
-  // Use initial path if provided, otherwise just plan between goals.
-  if (!initial_path.empty()){ //&& num_segments_ == initial_path.size() - 1 ) {
+  ROS_WARN("Initial path size %d, num segments %d!", initial_path.size(), num_segments_);
+  // Use initial path if provided, otherwise just plan between goals.]
+  mav_trajectory_generation::Trajectory traj_initial, transformed_trajectory;
+  if (!initial_path.empty())
+  { //&& num_segments_ == initial_path.size() - 1 ) {
     ROS_WARN("Initial path provided!");
     //num_segments_ == initial_path.size() - 1;
-    mav_trajectory_generation::Trajectory traj_initial;
     getInitialTrajectory(initial_path, total_time, &traj_initial);
-
 
     mav_msgs::EigenTrajectoryPoint::Vector initial_path;
     mav_trajectory_generation::sampleWholeTrajectory(
@@ -176,16 +179,18 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
     planning_marker_pub_.publish(marker_array);
     ROS_ERROR("[Voxblox Loco Planner] Initial path");
 
-    loco_.setupFromTrajectory(traj_initial);
-  } else {
+   //loco_setupFromTrajectory(traj_initial);
+  }
+  else
+  {
     ROS_WARN("setup From Trajectory Points!");
-    loco_.setupFromTrajectoryPoints(start, goal, num_segments_, total_time);
+   //loco_setupFromTrajectoryPoints(start, goal, num_segments_, total_time);
   }
   Eigen::VectorXd x0, x;
-  loco_.getParameterVector(&x0);
+  //loco_.getParameterVector(&x0);
   ROS_WARN("getParameterVector");
-  x = x0;
-  loco_.solveProblem();
+  //x = x0;
+  //loco_.solveProblem();
   ROS_WARN("solveProblem");
 
   // Check if this path is collision-free.
@@ -194,12 +199,21 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
   bool success = false;
   int i = 0;
   for (i = 0; i < num_random_restarts_; i++) {
-    loco_.getTrajectory(trajectory);
+    //loco_.getTrajectory(trajectory);
+    mav_trajectory_generation::Segment::Vector segments;
+    traj_initial.getSegments(&segments);
+    trajectory->setSegments(segments);
+
     mav_trajectory_generation::sampleWholeTrajectory(
         *trajectory, kCollisionSamplingDt, &path);
     success = isPathCollisionFree(path);
     if (success) {
       // Awesome, collision-free path.
+      trajectory_msgs::MultiDOFJointTrajectory msg;
+      msg.header.frame_id = "world";
+      msg.header.stamp = ros::Time::now();
+      mav_msgs::msgMultiDofJointTrajectoryFromEigen(path, &msg);
+      shortened_path_pub_.publish(msg);
       ROS_ERROR("[Voxblox Loco Planner] Collision free");
       break;
     }
@@ -214,9 +228,9 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
 
 
     // Otherwise let's do some random restarts.
-    x = x0 + random_restart_magnitude_ * Eigen::VectorXd::Random(x.size());
-    loco_.setParameterVector(x);
-    loco_.solveProblem();
+    //x = x0 + random_restart_magnitude_ * Eigen::VectorXd::Random(x.size());
+    //loco_.setParameterVector(x);
+    //loco_.solveProblem();
   }
 
   if (success) {
@@ -239,7 +253,7 @@ bool VoxbloxLocoPlanner::getTrajectoryBetweenWaypoints(
 
 bool VoxbloxLocoPlanner::getInitialTrajectory(
     const mav_msgs::EigenTrajectoryPoint::Vector& waypoints, double total_time,
-    mav_trajectory_generation::Trajectory* trajectory) const {
+    mav_trajectory_generation::Trajectory* trajectory) {
   mav_trajectory_generation::timing::Timer linear_timer("loco/initial");
 
   mav_trajectory_generation::PolynomialOptimization<kN> poly_opt(kD);
@@ -251,7 +265,7 @@ bool VoxbloxLocoPlanner::getInitialTrajectory(
   }
  
   int derivative_to_optimize =
-      mav_trajectory_generation::derivative_order::ACCELERATION;
+      mav_trajectory_generation::derivative_order::VELOCITY;
 
   mav_trajectory_generation::Vertex::Vector vertices(
       num_vertices, mav_trajectory_generation::Vertex(kD));
@@ -264,9 +278,9 @@ bool VoxbloxLocoPlanner::getInitialTrajectory(
   vertices.front().addConstraint(
       mav_trajectory_generation::derivative_order::VELOCITY,
       waypoints.front().velocity_W);
-  vertices.front().addConstraint(
-      mav_trajectory_generation::derivative_order::ACCELERATION,
-      waypoints.front().acceleration_W);
+  // vertices.front().addConstraint(
+  //     mav_trajectory_generation::derivative_order::ACCELERATION,
+  //     waypoints.front().acceleration_W);
   vertices.back().makeStartOrEnd(0, derivative_to_optimize);
   vertices.back().addConstraint(
       mav_trajectory_generation::derivative_order::POSITION,
@@ -274,29 +288,59 @@ bool VoxbloxLocoPlanner::getInitialTrajectory(
   vertices.back().addConstraint(
       mav_trajectory_generation::derivative_order::VELOCITY,
       waypoints.back().velocity_W);
-  vertices.back().addConstraint(
-      mav_trajectory_generation::derivative_order::ACCELERATION,
-      waypoints.back().acceleration_W);
+  // vertices.back().addConstraint(
+  //     mav_trajectory_generation::derivative_order::ACCELERATION,
+  //     waypoints.back().acceleration_W);
 
   // Now do the middle bits.
+  std::vector<double> segment_times;
   size_t j = 1;
   for (size_t i = 1; i < waypoints.size() - 1; i += 1) {
     vertices[j].addConstraint(
         mav_trajectory_generation::derivative_order::POSITION,
         waypoints[i].position_W);
     j++;
+
+    double segment_time = computeSegmentTime(waypoints[i - 1], waypoints[i]);
+    segment_times.push_back(segment_time);
   }
 
-  std::vector<double> segment_times(num_vertices - 1,
-                                    total_time / (num_vertices - 1));
+  // Add last segment only when the shotgun path is used
+  if(waypoints.size() > 2){
+    double last_segment_time = computeSegmentTime(waypoints[num_vertices-1], waypoints[num_vertices-2]);
+    segment_times.push_back(last_segment_time);
+  }
+
+  // Use 10 segments instead
+  if( waypoints.size() <= 2){
+    std::vector<double> segment_times_single_segment(num_vertices - 1, total_time / (num_vertices - 1));
+    segment_times = segment_times_single_segment;
+  }
+
+  ROS_ERROR("Segment times size %d, %d, %f", segment_times.size(), num_vertices, total_time);
   poly_opt.setupFromVertices(vertices, segment_times, derivative_to_optimize);
   if (poly_opt.solveLinear()) {
     poly_opt.getTrajectory(trajectory);
-  } else {
+  }
+  else
+  {
     return false;
   }
   linear_timer.Stop();
   return true;
+}
+
+double VoxbloxLocoPlanner::computeSegmentTime(const mav_msgs::EigenTrajectoryPoint& start, const  mav_msgs::EigenTrajectoryPoint& goal){
+  
+  double segment_time;
+  double segment_length = (start.position_W - goal.position_W).norm();
+    if(segment_length < 1.5){
+       segment_time = std::max(1.0, segment_length / (0.6 * constraints_.v_max));
+    }else{
+      segment_time = std::max(1.0, segment_length / constraints_.v_max);
+    }
+    ROS_ERROR("Segment time %f", segment_time);
+    return segment_time;
 }
 
 bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
@@ -410,7 +454,6 @@ bool VoxbloxLocoPlanner::getTrajectoryTowardGoal(
 
   success = getTrajectoryBetweenWaypoints(start_point, goal_point,
                                           shortened_path, trajectory);
-
   ROS_INFO("[Voxblox Loco Planner] Success : %d", success);
   // TODO(DEBUG)
   if (verbose_) {
